@@ -17,7 +17,7 @@ server also checks/populates a Redis cache before hitting Kafka on reads.
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (running)
 - Python 3
-- JDK 21 (for `server`) and JDK 17 (for `producer`) on your `PATH`, for the local build step
+- JDK 21 on your `PATH`, for the local build step (both `server` and `producer` target Java 21)
 
 ## Quick start
 
