@@ -26,26 +26,26 @@ public class KafkaTopicConfig {
 
     @Bean
     public NewTopic createTopic() {
-        return TopicBuilder.name(createTopic).build();
+        return TopicBuilder.name(createTopic).partitions(3).build();
     }
 
     @Bean
     public NewTopic updateTopic() {
-        return TopicBuilder.name(updateTopic).build();
+        return TopicBuilder.name(updateTopic).partitions(3).build();
     }
 
     @Bean
     public NewTopic deleteTopic() {
-        return TopicBuilder.name(deleteTopic).build();
+        return TopicBuilder.name(deleteTopic).partitions(3).build();
     }
 
     @Bean
     public NewTopic readTopic() {
-        return TopicBuilder.name(readTopic).build();
+        return TopicBuilder.name(readTopic).partitions(3).build();
     }
 
     @Bean
     public NewTopic replyTopic() {
-        return TopicBuilder.name(replyTopic).build();
+        return TopicBuilder.name(replyTopic).partitions(3).build();
     }
 }
