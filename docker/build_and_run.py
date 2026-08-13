@@ -15,8 +15,6 @@ ROOT_DIR = DOCKER_DIR.parent
 SERVER_DIR = ROOT_DIR / "server"
 PRODUCER_DIR = ROOT_DIR / "producer"
 
-API_BASE_URL = "http://localhost:3000/hometask/api/v1"
-
 API_ENDPOINTS = [
     ("POST", "/messages", 'Create a message. Body: {"id": <int>, "msg": "<string>"}'),
     ("GET", "/messages/{id}", "Read a message by id"),
@@ -50,13 +48,28 @@ def start_docker_stack():
     run(["docker", "compose", "up", "-d"], cwd=DOCKER_DIR)
 
 
-def print_api_list():
+def discover_server_port() -> str:
+    # server publishes no fixed host port (so it can be scaled with --scale server=N),
+    # so the actual port has to be looked up after the container starts.
+    result = subprocess.run(
+        ["docker", "compose", "port", "server", "3000"],
+        cwd=str(DOCKER_DIR), capture_output=True, text=True,
+    )
+    if result.returncode == 0 and ":" in result.stdout:
+        return result.stdout.strip().rsplit(":", 1)[1]
+    print("\nCould not auto-detect server's port; falling back to 3000.")
+    print("Run 'docker compose port server 3000' to find it yourself.")
+    return "3000"
+
+
+def print_api_list(port: str):
+    base_url = f"http://localhost:{port}/hometask/api/v1"
     print("\n" + "=" * 60)
     print("REST API")
     print("=" * 60)
-    print(f"Base URL: {API_BASE_URL}\n")
+    print(f"Base URL: {base_url}\n")
     for method, path, description in API_ENDPOINTS:
-        print(f"  {method:<6} {API_BASE_URL}{path}")
+        print(f"  {method:<6} {base_url}{path}")
         print(f"         {description}\n")
 
 
@@ -67,7 +80,10 @@ def main():
 
     print("\nAll components are up: kafka, postgres, redis, server, producer.")
     print("Check status with: docker compose ps")
-    print_api_list()
+    port = discover_server_port()
+    print_api_list(port)
+    print("Running multiple server instances? Each has its own port:")
+    print("  docker ps --filter \"name=docker-server\"")
 
 
 if __name__ == "__main__":

@@ -7,11 +7,13 @@ An event-driven CRUD service for a simple `Message` resource (`id: int`, `msg: s
 - **`docker`** — Kafka, Postgres, Redis, and the two apps above, wired together with Docker Compose, plus a script to build and launch everything.
 
 ```
-Client → server (REST, :3000) → Kafka (command topics) → producer → Postgres
-                ↑                                              │
-                └──────────────── Kafka (reply topic) ─────────┘
+Client → server (REST) → Kafka (command topics) → producer → Postgres
+                ↑                                        │
+                └──────────────── Kafka (reply topic) ───┘
 server also checks/populates a Redis cache before hitting Kafka on reads.
 ```
+
+`server` and `producer` are both safe to run as multiple instances: `producer` is a stateless Kafka consumer-group member (partitions spread across instances automatically), and `server` gives each instance its own reply consumer group so replies always reach the instance that made the request.
 
 ## Prerequisites
 
@@ -42,9 +44,23 @@ docker compose down          # stop and remove containers (images/data persist)
 docker compose up -d         # bring the stack back up without rebuilding
 ```
 
+### Scaling
+
+`server` doesn't publish a fixed host port (so multiple instances can run side by side), so find the assigned port first:
+
+```powershell
+docker compose up -d --scale server=3    # run 3 instances of server
+docker compose port server 3000          # -> e.g. 0.0.0.0:55789 (one instance's port)
+docker ps --filter "name=docker-server"  # list every instance and its own port
+```
+
+Each instance is independently reachable on its own port — there's no load balancer in front by default, so pick one instance's port for a given request, or add a reverse proxy (nginx/Traefik) in front if you want a single stable entrypoint across replicas.
+
+`producer` can be scaled the same way (`--scale producer=N`); it has no exposed port to worry about.
+
 ## REST API
 
-Base URL: `http://localhost:3000/hometask/api/v1`
+Base URL: `http://localhost:<port>/hometask/api/v1`, where `<port>` is the host port Docker assigned to your `server` instance (see [Scaling](#scaling) above — with a single default instance, run `docker compose port server 3000` to find it).
 
 | Method | Path             | Description                                  |
 |--------|------------------|-----------------------------------------------|
@@ -56,20 +72,23 @@ Base URL: `http://localhost:3000/hometask/api/v1`
 ### Examples
 
 ```bash
-curl -X POST http://localhost:3000/hometask/api/v1/messages \
+# find the port once, then reuse it:
+PORT=$(docker compose port server 3000 | cut -d: -f2)
+
+curl -X POST http://localhost:$PORT/hometask/api/v1/messages \
   -H "Content-Type: application/json" \
   -d '{"id": 1, "msg": "hello"}'
 # 201 Created -> {"id":1,"msg":"hello"}
 
-curl http://localhost:3000/hometask/api/v1/messages/1
+curl http://localhost:$PORT/hometask/api/v1/messages/1
 # 200 OK -> {"id":1,"msg":"hello"}
 
-curl -X PUT http://localhost:3000/hometask/api/v1/messages/1 \
+curl -X PUT http://localhost:$PORT/hometask/api/v1/messages/1 \
   -H "Content-Type: application/json" \
   -d '{"msg": "updated"}'
 # 200 OK -> {"id":1,"msg":"updated"}
 
-curl -X DELETE http://localhost:3000/hometask/api/v1/messages/1
+curl -X DELETE http://localhost:$PORT/hometask/api/v1/messages/1
 # 204 No Content
 ```
 

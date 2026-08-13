@@ -54,9 +54,8 @@ services:
   server:
     build:
       context: ../server
-    container_name: hometask-server
     ports:
-      - "3000:3000"
+      - "3000"
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:19092
       SPRING_DATA_REDIS_HOST: redis
